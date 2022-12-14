@@ -86,7 +86,6 @@ contract Web3Builders is ERC721, ERC721Enumerable, Pausable, Ownable {
         super._beforeTokenTransfer(from, to, tokenId);
     }
 
-    // The following functions are overrides required by Solidity.
 
     function supportsInterface(
         bytes4 interfaceId
