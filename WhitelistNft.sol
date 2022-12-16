@@ -9,6 +9,8 @@ contract Web3Builders is ERC721, Ownable {
     using Counters for Counters.Counter;
     uint256 constant maxSupply = 2000;
 
+
+    string private revealURI = "https://";
     uint256 private totalSupply;
     string baseURI;
     uint private balance;
@@ -18,11 +20,12 @@ contract Web3Builders is ERC721, Ownable {
     bool private pause = true;
     uint256 public publicprice;
     uint256 public allowListprice;
-    uint256 private royaltyfee = 5;
+    uint256 private royaltypercentage = 5;
     mapping(address => bool) public allowList;
 
-    Counters.Counter private _tokenIdCounter;
+    bool public revealed = false;
 
+    Counters.Counter private _tokenIdCounter;
     constructor(
         string memory BaseURI,
         uint256 _publicprice,
@@ -32,10 +35,29 @@ contract Web3Builders is ERC721, Ownable {
         publicprice = _publicprice;
         allowListprice = _allowListprice;
     }
-
     modifier whenNotpause() {
         require(pause == true, "The minting is stopped");
         _;
+    }
+
+
+    function setRoyalty(uint _royaltypercentage) public onlyOwner{
+        royaltypercentage = _royaltypercentage;
+    }
+    function reveal()  external onlyOwner {
+        revealed = true;
+    }
+
+    //reveal the token URI by overriding the function 
+    function tokenURI(uint256 tokenId) public view virtual override  returns (string memory) {
+        require(tokenId <= totalSupply,"non existent toekn");
+        if(revealed == true){
+            return super.tokenURI(tokenId);
+        }
+        else{
+            return revealURI;
+        }
+
     }
 
     function Pause(bool _pause) external onlyOwner {
@@ -99,13 +121,20 @@ contract Web3Builders is ERC721, Ownable {
         }
     }
 
-    // set the royalty for the creator
+      // set the royalty for the creator
     function TransferNFT(address to, uint256 tokenId) public payable {
-        uint _royalty = (publicprice * royaltyfee) / 100;
-        require(msg.value == _royalty, "Not enough money to transfer");
-        _safeTransfer(msg.sender, to, tokenId, "");
-        payable(address(this)).transfer(balance);
+        uint _royalty = calculateRoyaltyFee(publicprice,royaltypercentage);
+        require(msg.value >= _royalty, "Not enough money to transfer");
+        safeTransferFrom(msg.sender, to, tokenId);
+        payable(address(this)).transfer(_royalty);
+        royaltyInfo(tokenId,publicprice);
     }
+
+    function royaltyInfo(uint256 _tokenId,uint256 _salePrice) public view returns (address receiver,uint256 royaltyAmount){
+        return (address(this) , calculateRoyaltyFee(publicprice , royaltypercentage));
+    }
+
+    
 
     // The following functions are overrides required by Solidity.
 
@@ -113,7 +142,7 @@ contract Web3Builders is ERC721, Ownable {
         return baseURI;
     }
 
-    function getRoyaltyFee() external view returns (uint256) {
-        return (publicprice * royaltyfee) / 100;
+    function calculateRoyaltyFee(uint _publicprice , uint _royaltypercentage) internal pure returns (uint256) {
+        return (_publicprice *  _royaltypercentage) / 100;
     }
 }
